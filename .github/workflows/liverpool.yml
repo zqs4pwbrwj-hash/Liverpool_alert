@@ -1,7 +1,6 @@
 name: Liverpool match checker
 
 on:
-  workflow_dispatch:
   schedule:
     - cron: '0 * * * *'   # kjør hver hele time
   workflow_dispatch:
