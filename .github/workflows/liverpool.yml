@@ -2,7 +2,7 @@ name: Liverpool match checker
 
 on:
   schedule:
-    - cron: '0 * * * *'   # kjør hver hele time
+    - cron: '0 * * * *'   # kjør hver time
   workflow_dispatch:
 
 jobs:
@@ -20,5 +20,5 @@ jobs:
 
       - name: Run Liverpool checker
         env:
-          API_SPORTS_KEY: ${{ secrets.API_SPORTS_KEY }}
+          FOOTBALL_DATA_KEY: ${{ secrets.FOOTBALL_DATA_KEY }}
         run: node liverpool-check.js
