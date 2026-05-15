@@ -1,6 +1,7 @@
 name: Liverpool Alert
 
 on:
+  workflow_dispatch:
   schedule:
     - cron: "*/5 * * * *"
 
