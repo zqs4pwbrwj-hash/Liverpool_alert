@@ -1,78 +1,74 @@
-const API_KEY = process.env.API_SPORTS_KEY;
-const BASE_URL = 'https://v3.football.api-sports.io';
-const LIVERPOOL_TEAM_ID = 40; // Liverpool i API-Sports
+const API_KEY = process.env.FOOTBALL_DATA_KEY;
+const BASE_URL = 'https://api.football-data.org/v4';
+const LIVERPOOL_ID = 64; // Liverpool i Football-Data.org
 
 if (!API_KEY) {
-  console.error('Mangler API_SPORTS_KEY i GitHub Secrets.');
+  console.error('Mangler FOOTBALL_DATA_KEY i GitHub Secrets.');
   process.exit(1);
 }
 
 function todayISO() {
-  return new Date().toISOString().slice(0, 10); // YYYY-MM-DD (UTC, men godt nok)
+  return new Date().toISOString().slice(0, 10);
 }
 
-async function fetchLiverpoolFixtures() {
+async function fetchMatches() {
   const date = todayISO();
-  const url = `${BASE_URL}/fixtures?team=${LIVERPOOL_TEAM_ID}&date=${date}`;
+  const url = `${BASE_URL}/matches?dateFrom=${date}&dateTo=${date}`;
 
   const res = await fetch(url, {
-    method: 'GET',
     headers: {
-      'x-apisports-key': API_KEY,
-      'accept': 'application/json'
+      'X-Auth-Token': API_KEY
     }
   });
 
   if (!res.ok) {
-    console.error('Feil fra API-Sports:', res.status, res.statusText);
+    console.error('Feil fra Football-Data:', res.status, res.statusText);
     const text = await res.text();
     console.error(text);
     process.exit(1);
   }
 
   const data = await res.json();
-  return data.response || [];
+  return data.matches || [];
 }
 
-function describeFixture(fix) {
-  const league = fix.league?.name;
-  const round = fix.league?.round;
-  const home = fix.teams?.home?.name;
-  const away = fix.teams?.away?.name;
-  const status = fix.fixture?.status?.short; // NS, 1H, HT, 2H, FT, AET, PEN, etc.
-  const date = fix.fixture?.date;
-  const goalsHome = fix.goals?.home;
-  const goalsAway = fix.goals?.away;
+function describeMatch(match) {
+  const home = match.homeTeam.name;
+  const away = match.awayTeam.name;
+  const status = match.status; // SCHEDULED, IN_PLAY, FINISHED
+  const utcDate = match.utcDate;
+  const score = match.score;
 
   console.log('-----------------------------');
-  console.log(`${league} – ${round}`);
   console.log(`${home} vs ${away}`);
-  console.log(`Tidspunkt: ${date}`);
+  console.log(`Tidspunkt: ${utcDate}`);
   console.log(`Status: ${status}`);
 
-  if (['FT', 'AET', 'PEN'].includes(status)) {
-    console.log(`Sluttresultat: ${home} ${goalsHome} – ${goalsAway} ${away}`);
-  } else if (['1H', '2H', 'HT'].includes(status)) {
-    console.log(`Live stilling: ${home} ${goalsHome} – ${goalsAway} ${away}`);
-  } else if (status === 'NS') {
-    console.log('Kampen har ikke startet ennå.');
+  if (status === 'FINISHED') {
+    console.log(`Sluttresultat: ${home} ${score.fullTime.home} – ${score.fullTime.away} ${away}`);
+  } else if (status === 'IN_PLAY') {
+    console.log(`Live stilling: ${home} ${score.fullTime.home} – ${score.fullTime.away} ${away}`);
   } else {
-    console.log('Status ukjent/annen.');
+    console.log('Kampen har ikke startet ennå.');
   }
 }
 
 (async () => {
   try {
-    const fixtures = await fetchLiverpoolFixtures();
+    const matches = await fetchMatches();
 
-    if (!fixtures.length) {
+    const liverpoolMatches = matches.filter(
+      m => m.homeTeam.id === LIVERPOOL_ID || m.awayTeam.id === LIVERPOOL_ID
+    );
+
+    if (!liverpoolMatches.length) {
       console.log('Liverpool spiller ikke i dag.');
       return;
     }
 
-    console.log(`Fant ${fixtures.length} kamp(er) med Liverpool i dag:\n`);
+    console.log(`Fant ${liverpoolMatches.length} kamp(er) med Liverpool i dag:\n`);
 
-    fixtures.forEach(describeFixture);
+    liverpoolMatches.forEach(describeMatch);
   } catch (err) {
     console.error('Uventet feil:', err);
     process.exit(1);
