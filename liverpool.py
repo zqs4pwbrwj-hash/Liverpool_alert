@@ -1,1 +1,64 @@
-import time import requests import datetime import os API_KEY = os.getenv("API_KEY") WEBHOOK_URL = os.getenv("WEBHOOK_URL") TEAM_ID = 40 # Liverpool def hent_fixtures(): url = f"https://api.balldontlie.io/football/v1/games?team_id={TEAM_ID}" headers = {"X-API-Key": API_KEY} r = requests.get(url, headers=headers) return r.json()["data"] def kamp_idag(fixtures): idag = datetime.date.today() for kamp in fixtures: kampdato = datetime.date.fromisoformat(kamp["date"][:10]) if kampdato == idag: return kamp return None def liverpool_tapte(kamp): h = kamp["home_team"]["name"] b = kamp["away_team"]["name"] hs = kamp["home_score"] bs = kamp["away_score"] if h == "Liverpool": return hs < bs return bs < hs def overvåk_kamp(kamp): kamp_id = kamp["id"] sms_sendt = False while True: url = f"https://api.balldontlie.io/football/v1/games/{kamp_id}" headers = {"X-API-Key": API_KEY} r = requests.get(url, headers=headers) data = r.json() status = data["status"] if status == "finished": if liverpool_tapte(data) and not sms_sendt: requests.post(WEBHOOK_URL) sms_sendt = True break time.sleep(60) fixtures = hent_fixtures() kamp = kamp_idag(fixtures) if kamp: overvåk_kamp(kamp)
+import time
+import requests
+import datetime
+import os
+
+API_KEY = os.getenv("API_KEY")
+WEBHOOK_URL = os.getenv("WEBHOOK_URL")
+
+TEAM_ID = 40  # Liverpool
+
+
+def hent_fixtures():
+    url = f"https://api.balldontlie.io/football/v1/games?team_id={TEAM_ID}"
+    headers = {"X-API-Key": API_KEY}
+    r = requests.get(url, headers=headers)
+    return r.json()["data"]
+
+
+def kamp_idag(fixtures):
+    idag = datetime.date.today()
+    for kamp in fixtures:
+        kampdato = datetime.date.fromisoformat(kamp["date"][:10])
+        if kampdato == idag:
+            return kamp
+    return None
+
+
+def liverpool_tapte(kamp):
+    h = kamp["home_team"]["name"]
+    b = kamp["away_team"]["name"]
+    hs = kamp["home_score"]
+    bs = kamp["away_score"]
+
+    if h == "Liverpool":
+        return hs < bs
+    return bs < hs
+
+
+def overvåk_kamp(kamp):
+    kamp_id = kamp["id"]
+    sms_sendt = False
+
+    while True:
+        url = f"https://api.balldontlie.io/football/v1/games/{kamp_id}"
+        headers = {"X-API-Key": API_KEY}
+        r = requests.get(url, headers=headers)
+        data = r.json()
+
+        status = data["status"]
+
+        if status == "finished":
+            if liverpool_tapte(data) and not sms_sendt:
+                requests.post(WEBHOOK_URL)
+                sms_sendt = True
+            break
+
+        time.sleep(60)
+
+
+fixtures = hent_fixtures()
+kamp = kamp_idag(fixtures)
+
+if kamp:
+    overvåk_kamp(kamp)
