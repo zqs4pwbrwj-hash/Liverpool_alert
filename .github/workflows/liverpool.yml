@@ -1,28 +1,25 @@
-name: Liverpool Alert
+name: Liverpool match checker
 
 on:
   workflow_dispatch:
   schedule:
-    - cron: "*/2 * * * *"
+    - cron: '0 * * * *'   # kjør hver hele time
+  workflow_dispatch:
 
 jobs:
-  run-script:
+  check-liverpool:
     runs-on: ubuntu-latest
 
     steps:
       - name: Checkout repo
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
 
-      - name: Set up Python
-        uses: actions/setup-python@v4
+      - name: Setup Node
+        uses: actions/setup-node@v4
         with:
-          python-version: "3.11"
+          node-version: '20'
 
-      - name: Install dependencies
-        run: pip install requests
-
-      - name: Run Liverpool script
+      - name: Run Liverpool checker
         env:
-          API_KEY: ${{ secrets.API_KEY }}
-          WEBHOOK_URL: ${{ secrets.WEBHOOK_URL }}
-        run: python liverpool.py
+          API_SPORTS_KEY: ${{ secrets.API_SPORTS_KEY }}
+        run: node liverpool-check.js
