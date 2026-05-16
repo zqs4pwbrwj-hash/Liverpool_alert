@@ -1,18 +1,8 @@
-name: Liverpool RSS Check
+name: Liverpool RSS check
 
 on:
   schedule:
-    - cron: "0 21 * * *"   # 23:00 norsk tid (21:00 UTC)
-  workflow_dispatch:
-
-jobs:
-  check:
-    runs-on: ubuntu-latest
-    steps:name: Liverpool Checker
-
-on:
-  schedule:
-    - cron: "0 21 * * *"   # 23:00 norsk tid
+    - cron: "0 21 * * *"
   workflow_dispatch:
 
 jobs:
@@ -41,19 +31,3 @@ jobs:
         env:
           PUSHCUT_URL: ${{ secrets.PUSHCUT_URL }}
         run: node check_last.js
-
-      - name: Checkout
-        uses: actions/checkout@v3
-
-      - name: Set up Node
-        uses: actions/setup-node@v3
-        with:
-          node-version: 18
-
-      - name: Install deps
-        run: npm install rss-parser axios
-
-      - name: Run script
-        env:
-          PUSHCUT_URL: ${{ secrets.PUSHCUT_URL }}
-        run: node check.js
