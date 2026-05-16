@@ -72,7 +72,8 @@ async function fetchFotMobPL() {
       headers: {
         'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64)',
         'Accept': 'application/json',
-        'Referer': 'https://www.fotmob.com/'
+        'Referer': 'https://www.fotmob.com/',
+        'Cookie': 'fm_cookie=1'
       }
     });
 
@@ -99,6 +100,7 @@ async function fetchFotMobPL() {
     return [];
   }
 }
+
 
 //
 // MATCH BESKRIVELSE
