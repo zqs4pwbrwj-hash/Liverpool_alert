@@ -1,33 +1,29 @@
-name: Liverpool RSS check
+name: Liverpool tapte varsling
 
 on:
   schedule:
-    - cron: "0 21 * * *"
+    - cron: "*/10 * * * *"   # kjører hvert 10. minutt
   workflow_dispatch:
 
 jobs:
-  check:
+  check_liverpool:
     runs-on: ubuntu-latest
+
     steps:
-      - name: Checkout
-        uses: actions/checkout@v3
+    - name: Sjekk ut repo
+      uses: actions/checkout@v3
 
-      - name: Set up Node
-        uses: actions/setup-node@v3
-        with:
-          node-version: 18
+    - name: Installer Node
+      uses: actions/setup-node@v3
+      with:
+        node-version: 18
 
-      - name: Install deps
-        run: npm install axios
+    - name: Installer avhengigheter
+      run: npm install
 
-      - name: Run daily check
-        if: github.event_name == 'schedule'
-        env:
-          PUSHCUT_URL: ${{ secrets.PUSHCUT_URL }}
-        run: node check_today.js
+    - name: Kjør Liverpool-sjekk
+      run: node check_last.js
 
-      - name: Run manual check
-        if: github.event_name == 'workflow_dispatch'
-        env:
-          PUSHCUT_URL: ${{ secrets.PUSHCUT_URL }}
-        run: node check_last.js
+    - name: Send Pushcut notification (GET)
+      if: success()
+      run: curl "$PUSHCUT_URL"
