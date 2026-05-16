@@ -1,4 +1,4 @@
-name: Liverpool tapte varsling
+name: Liverpool tapte varsling (cron)
 
 on:
   schedule:
@@ -21,12 +21,9 @@ jobs:
     - name: Installer axios
       run: npm install axios
 
-    - name: Debug (viser at workflow kjører)
-      run: echo "Workflow kjører OK"
+    - name: Kjør Liverpool-sjekk (kun i dag)
+      run: node check_last.js today
 
-    - name: Kjør Liverpool-sjekk
-      run: node check_last.js
-
-    - name: Send Pushcut notification (hardkodet GET)
+    - name: Send Pushcut notification
       if: success()
       run: curl "https://api.pushcut.io/R5brW4g13iCchU9EjQ0_u/notifications/Liverpool_tapte"
