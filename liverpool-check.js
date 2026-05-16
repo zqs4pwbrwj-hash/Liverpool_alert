@@ -8,6 +8,7 @@ const WEBHOOK_URL = process.env.WEBHOOK_URL;
 
 const BASE_URL = 'https://api.football-data.org/v4';
 const LIVERPOOL_ID = 64; // Liverpool FC
+const PREMIER_LEAGUE_ID = 47; // FotMob PL ID
 
 if (!API_KEY) {
   console.error('Mangler FOOTBALL_DATA_KEY i Secrets.');
@@ -41,6 +42,9 @@ async function sendWebhookMessage(text) {
   });
 }
 
+//
+// FOOTBALL-DATA
+//
 async function fetchFootballDataMatches(from, to) {
   const url = `${BASE_URL}/matches?dateFrom=${from}&dateTo=${to}`;
 
@@ -58,10 +62,10 @@ async function fetchFootballDataMatches(from, to) {
 }
 
 //
-// FOTMOB FALLBACK
+// FOTMOB FALLBACK — Premier League feed
 //
-async function fetchFotMobMatches(date) {
-  const url = `https://www.fotmob.com/api/matches?date=${date}`;
+async function fetchFotMobPL() {
+  const url = `https://www.fotmob.com/api/leagues?id=${PREMIER_LEAGUE_ID}&tab=matches`;
 
   try {
     const res = await fetch(url, {
@@ -73,111 +77,4 @@ async function fetchFotMobMatches(date) {
     });
 
     if (!res.ok) {
-      console.error('FotMob svarte ikke OK:', res.status);
-      return [];
-    }
-
-    const data = await res.json();
-
-    const leagues = data.leagues || [];
-    const matches = [];
-
-    for (const league of leagues) {
-      if (league.matches) {
-        matches.push(...league.matches);
-      }
-      if (league.events) {
-        matches.push(...league.events);
-      }
-      if (league.rounds) {
-        for (const round of league.rounds) {
-          if (round.matches) {
-            matches.push(...round.matches);
-          }
-        }
-      }
-    }
-
-    return matches.filter(
-      m =>
-        m.home?.name === 'Liverpool' ||
-        m.away?.name === 'Liverpool'
-    );
-
-  } catch (err) {
-    console.error('Feil ved henting fra FotMob:', err);
-    return [];
-  }
-}
-
-async function describeMatch(match, source) {
-  const home = match.homeTeam?.name || match.home?.name;
-  const away = match.awayTeam?.name || match.away?.name;
-
-  let homeScore, awayScore, status;
-
-  if (source === 'football-data') {
-    homeScore = match.score.fullTime.home;
-    awayScore = match.score.fullTime.away;
-    status = match.status;
-  } else {
-    homeScore = match.home.score;
-    awayScore = match.away.score;
-    status = match.status?.toUpperCase() || 'FINISHED';
-  }
-
-  const result = `${home} ${homeScore} – ${awayScore} ${away}`;
-
-  const liverpoolLost =
-    (home === 'Liverpool' && homeScore < awayScore) ||
-    (away === 'Liverpool' && awayScore < homeScore);
-
-  if (liverpoolLost) {
-    await sendWebhookMessage(`Liverpool tapte: ${result}`);
-  }
-
-  console.log(`${result} (${source})`);
-}
-
-//
-// MAIN
-//
-(async () => {
-  try {
-    const { from } = getDateRange();
-    console.log(`Sjekker kamper for dato: ${from}`);
-
-    // 1) Prøv Football-Data først
-    let matches = await fetchFootballDataMatches(from, from);
-    let source = 'football-data';
-
-    const foundFD = matches.some(
-      m => m.homeTeam?.id === LIVERPOOL_ID || m.awayTeam?.id === LIVERPOOL_ID
-    );
-
-    // 2) Hvis ingen kamp → prøv FotMob
-    if (!foundFD) {
-      console.log('Ingen Liverpool-kamp i Football-Data, prøver FotMob...');
-      const fotmobMatches = await fetchFotMobMatches(from);
-
-      if (fotmobMatches.length > 0) {
-        matches = fotmobMatches;
-        source = 'fotmob';
-      }
-    }
-
-    if (matches.length === 0) {
-      console.log('Liverpool spilte ikke på denne datoen.');
-      return;
-    }
-
-    for (const match of matches) {
-      await describeMatch(match, source);
-    }
-
-  } catch (err) {
-    console.error('Uventet feil:', err);
-    process.exit(1);
-  }
-})();
-
+      console.error('FotMob svarte ikke
