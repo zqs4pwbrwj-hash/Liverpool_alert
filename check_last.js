@@ -13,6 +13,9 @@ function formatDate(d) {
   return `${y}${m}${day}`;
 }
 
+// ⭐ MODE: "today" (cron) eller "history" (manuell)
+const mode = process.argv[2] || "today";
+
 (async () => {
   try {
     let daysBack = 0;
@@ -44,11 +47,18 @@ function formatDate(d) {
         return completed && hasLiverpool;
       });
 
+      // ⭐ Cron-modus: sjekk kun dagens dato
+      if (mode === "today") break;
+
       daysBack++;
     }
 
     if (!match) {
-      console.log("No Liverpool match found in last 30 days.");
+      console.log(
+        mode === "today"
+          ? "No Liverpool match today."
+          : "No Liverpool match found in last 30 days."
+      );
       return;
     }
 
@@ -74,7 +84,7 @@ function formatDate(d) {
       return;
     }
 
-    console.log("Liverpool LOST — sending Pushcut");
+    console.log("Liverpool LOST — workflow will send Pushcut");
 
   } catch (err) {
     console.error(err);
