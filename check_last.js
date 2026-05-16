@@ -53,13 +53,14 @@ const mode = process.argv[2] || "today";
       daysBack++;
     }
 
+    // ⭐ Ingen kamp funnet
     if (!match) {
-      console.log(
-        mode === "today"
-          ? "No Liverpool match today."
-          : "No Liverpool match found in last 30 days."
-      );
-      return;
+      if (mode === "today") {
+        console.log("No Liverpool match today.");
+      } else {
+        console.log("No Liverpool match found in last 30 days.");
+      }
+      process.exit(1); // ← Viktig: gjør at workflow IKKE sender push
     }
 
     const comp = match.competitions[0];
@@ -79,14 +80,18 @@ const mode = process.argv[2] || "today";
 
     console.log("Last Liverpool match:", title);
 
+    // ⭐ Liverpool tapte ikke
     if (!liverpoolLost) {
       console.log("Liverpool did NOT lose.");
-      return;
+      process.exit(1); // ← Viktig: ingen push
     }
 
+    // ⭐ Liverpool tapte — workflow sender push
     console.log("Liverpool LOST — workflow will send Pushcut");
+    process.exit(0);
 
   } catch (err) {
     console.error(err);
+    process.exit(1);
   }
 })();
