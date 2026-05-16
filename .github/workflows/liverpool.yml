@@ -8,7 +8,40 @@ on:
 jobs:
   check:
     runs-on: ubuntu-latest
+    steps:name: Liverpool Checker
+
+on:
+  schedule:
+    - cron: "0 21 * * *"   # 23:00 norsk tid
+  workflow_dispatch:
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
     steps:
+      - name: Checkout
+        uses: actions/checkout@v3
+
+      - name: Set up Node
+        uses: actions/setup-node@v3
+        with:
+          node-version: 18
+
+      - name: Install deps
+        run: npm install axios
+
+      - name: Run daily check
+        if: github.event_name == 'schedule'
+        env:
+          PUSHCUT_URL: ${{ secrets.PUSHCUT_URL }}
+        run: node check_today.js
+
+      - name: Run manual check
+        if: github.event_name == 'workflow_dispatch'
+        env:
+          PUSHCUT_URL: ${{ secrets.PUSHCUT_URL }}
+        run: node check_last.js
+
       - name: Checkout
         uses: actions/checkout@v3
 
