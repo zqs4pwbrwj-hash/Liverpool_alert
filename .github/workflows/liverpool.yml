@@ -2,7 +2,7 @@ name: Liverpool tapte varsling
 
 on:
   schedule:
-    - cron: "*/10 * * * *"
+    - cron: "*/10 * * * *"   # kjører hvert 10. minutt
   workflow_dispatch:
 
 jobs:
@@ -20,6 +20,9 @@ jobs:
 
     - name: Installer axios
       run: npm install axios
+
+    - name: Debug URL (midlertidig)
+      run: echo "$PUSHCUT_URL"
 
     - name: Kjør Liverpool-sjekk
       run: node check_last.js
