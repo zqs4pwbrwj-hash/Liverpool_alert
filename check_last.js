@@ -1,7 +1,15 @@
 const axios = require("axios");
 
-async function getScoreboard(dateStr) {
-  const url = `https://site.api.espn.com/apis/site/v2/sports/soccer/eng.1/scoreboard?dates=${dateStr}`;
+// ⭐ Ligaer vi skal sjekke
+const leagues = [
+  "eng.1",            // Premier League
+  "uefa.champions",   // Champions League
+  "eng.fa",           // FA Cup
+  "eng.league_cup"    // EFL Cup (Carabao Cup)
+];
+
+async function getScoreboard(dateStr, league) {
+  const url = `https://site.api.espn.com/apis/site/v2/sports/soccer/${league}/scoreboard?dates=${dateStr}`;
   const response = await axios.get(url);
   return response.data.events || [];
 }
@@ -28,14 +36,19 @@ const mode = process.argv[2] || "today";
       const dateStr = formatDate(d);
       console.log("Checking date:", dateStr);
 
-      let events;
-      try {
-        events = await getScoreboard(dateStr);
-      } catch {
-        daysBack++;
-        continue;
+      let events = [];
+
+      // ⭐ Hent kamper fra ALLE ligaene
+      for (const league of leagues) {
+        try {
+          const e = await getScoreboard(dateStr, league);
+          events = events.concat(e);
+        } catch {
+          // hopper over feilende liga
+        }
       }
 
+      // ⭐ Finn Liverpool-kamp som er ferdig
       match = events.find(e => {
         const comp = e.competitions[0];
         const completed = comp.status.type.completed === true;
@@ -60,7 +73,7 @@ const mode = process.argv[2] || "today";
       } else {
         console.log("No Liverpool match found in last 30 days.");
       }
-      process.exit(0); // ← Workflow forblir grønn
+      process.exit(0); // workflow forblir grønn
     }
 
     const comp = match.competitions[0];
@@ -83,15 +96,16 @@ const mode = process.argv[2] || "today";
     // ⭐ Liverpool tapte ikke
     if (!liverpoolLost) {
       console.log("Liverpool did NOT lose.");
-      process.exit(0); // ← Workflow forblir grønn
+      process.exit(0); // workflow grønn
     }
 
-    // ⭐ Liverpool tapte — workflow sender push
+    // ⭐ Liverpool tapte — workflow skal sende push
     console.log("Liverpool LOST — workflow will send Pushcut");
+    console.log("PUSHCUT_TRIGGER"); // ← workflow ser etter denne
     process.exit(0);
 
   } catch (err) {
     console.error(err);
-    process.exit(0); // ← Selv feil gir grønn workflow, men logges
+    process.exit(0); // workflow grønn selv ved feil
   }
 })();
