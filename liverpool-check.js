@@ -8,10 +8,7 @@ const WEBHOOK_URL = process.env.WEBHOOK_URL;
 
 const BASE_URL = 'https://api.football-data.org/v4';
 const LIVERPOOL_ID = 64; // Liverpool FC
-
-// Premier League Pulse API (offisiell PL-feed)
-const PULSE_URL = 'https://footballapi.pulselive.com/football/fixtures?teams=10&page=0&pageSize=200';
-// teams=10 = Liverpool
+const SOFASCORE_TEAM_ID = 44; // Liverpool ID hos SofaScore
 
 if (!API_KEY) {
   console.error('Mangler FOOTBALL_DATA_KEY i Secrets.');
@@ -65,22 +62,24 @@ async function fetchFootballDataMatches(from, to) {
 }
 
 //
-// PULSE FALLBACK (Premier League offisiell feed)
+// SOFASCORE FALLBACK — hele sesongen
 //
-async function fetchPulseMatches() {
+async function fetchSofaScoreSeason() {
+  const url = `https://api.sofascore.com/api/v1/team/${SOFASCORE_TEAM_ID}/events/season`;
+
   try {
-    const res = await fetch(PULSE_URL);
+    const res = await fetch(url);
 
     if (!res.ok) {
-      console.error('Pulse svarte ikke OK:', res.status);
+      console.error('SofaScore svarte ikke OK:', res.status);
       return [];
     }
 
     const data = await res.json();
-    return data.content || [];
+    return data.events || [];
 
   } catch (err) {
-    console.error('Feil ved henting fra Pulse:', err);
+    console.error('Feil ved henting fra SofaScore:', err);
     return [];
   }
 }
@@ -89,8 +88,8 @@ async function fetchPulseMatches() {
 // MATCH BESKRIVELSE
 //
 async function describeMatch(match, source) {
-  const home = match.homeTeam?.name || match.teams?.home?.team?.name;
-  const away = match.awayTeam?.name || match.teams?.away?.team?.name;
+  const home = match.homeTeam?.name || match.homeTeam?.shortName;
+  const away = match.awayTeam?.name || match.awayTeam?.shortName;
 
   let homeScore, awayScore;
 
@@ -98,8 +97,8 @@ async function describeMatch(match, source) {
     homeScore = match.score.fullTime.home;
     awayScore = match.score.fullTime.away;
   } else {
-    homeScore = match.teams.home.score;
-    awayScore = match.teams.away.score;
+    homeScore = match.homeScore?.current;
+    awayScore = match.awayScore?.current;
   }
 
   const result = `${home} ${homeScore} – ${awayScore} ${away}`;
@@ -134,24 +133,27 @@ async function describeMatch(match, source) {
     );
 
     //
-    // 2) Pulse fallback
+    // 2) SofaScore season fallback
     //
     if (!foundFD) {
-      console.log('Ingen Liverpool-kamp i Football-Data, prøver Pulse...');
+      console.log('Ingen Liverpool-kamp i Football-Data, prøver SofaScore season...');
 
-      const pulseMatches = await fetchPulseMatches();
+      const sofaMatches = await fetchSofaScoreSeason();
 
-      const filtered = pulseMatches.filter(m => {
-        const date = m.kickoff?.label?.slice(0, 10);
-        const home = m.teams?.home?.team?.name;
-        const away = m.teams?.away?.team?.name;
+      const filtered = sofaMatches.filter(m => {
+        const date = m.startTimestamp
+          ? new Date(m.startTimestamp * 1000).toISOString().slice(0, 10)
+          : null;
+
+        const home = m.homeTeam?.name;
+        const away = m.awayTeam?.name;
 
         return date === from && (home === 'Liverpool' || away === 'Liverpool');
       });
 
       if (filtered.length > 0) {
         matches = filtered;
-        source = 'pulse';
+        source = 'sofascore';
       }
     }
 
