@@ -1,6 +1,6 @@
 //
-// Kjør uten argument  → sjekker dagens kamp (normal drift)
-// Kjør med "yesterday" → sjekker gårsdagens kamp (test av webhook)
+// Kjør uten argument  → sjekker dagens kamp
+// Kjør med "yesterday" → sjekker gårsdagens kamp
 //
 
 const API_KEY = process.env.FOOTBALL_DATA_KEY;
@@ -41,70 +41,103 @@ async function sendWebhookMessage(text) {
   });
 }
 
-async function fetchMatches(from, to) {
+async function fetchFootballDataMatches(from, to) {
   const url = `${BASE_URL}/matches?dateFrom=${from}&dateTo=${to}`;
 
   const res = await fetch(url, {
-    headers: {
-      'X-Auth-Token': API_KEY
-    }
+    headers: { 'X-Auth-Token': API_KEY }
   });
 
   if (!res.ok) {
     console.error('Feil fra Football-Data:', res.status, res.statusText);
-    const text = await res.text();
-    console.error(text);
-    process.exit(1);
+    return [];
   }
 
   const data = await res.json();
   return data.matches || [];
 }
 
-async function describeMatch(match) {
-  const home = match.homeTeam.name;
-  const away = match.awayTeam.name;
-  const status = match.status;
-  const score = match.score;
+async function fetchFotMobMatches(date) {
+  const fotmobDate = date.replace(/-/g, ''); // 2026-05-15 → 20260515
+  const url = `https://www.fotmob.com/api/matches?date=${fotmobDate}`;
 
-  let message = `${home} vs ${away} — Status: ${status}`;
+  try {
+    const res = await fetch(url);
+    if (!res.ok) return [];
 
-  if (status === 'FINISHED') {
-    const result = `${home} ${score.fullTime.home} – ${score.fullTime.away} ${away}`;
-    message = `Sluttresultat: ${result}`;
+    const data = await res.json();
 
-    const liverpoolLost =
-      (home === 'Liverpool FC' && score.fullTime.home < score.fullTime.away) ||
-      (away === 'Liverpool FC' && score.fullTime.away < score.fullTime.home);
+    // Finn Premier League-kamper
+    const allMatches = data.leagues.flatMap(l => l.matches);
 
-    if (liverpoolLost) {
-      await sendWebhookMessage(`Liverpool tapte: ${result}`);
-    }
+    // Filtrer Liverpool
+    return allMatches.filter(
+      m =>
+        m.home?.name === 'Liverpool' ||
+        m.away?.name === 'Liverpool'
+    );
+  } catch (err) {
+    console.error('Feil ved henting fra FotMob:', err);
+    return [];
+  }
+}
+
+async function describeMatch(match, source) {
+  const home = match.homeTeam?.name || match.home?.name;
+  const away = match.awayTeam?.name || match.away?.name;
+
+  let homeScore, awayScore, status;
+
+  if (source === 'football-data') {
+    homeScore = match.score.fullTime.home;
+    awayScore = match.score.fullTime.away;
+    status = match.status;
+  } else {
+    homeScore = match.home.score;
+    awayScore = match.away.score;
+    status = match.status?.toUpperCase() || 'FINISHED';
   }
 
-  console.log(message);
+  const result = `${home} ${homeScore} – ${awayScore} ${away}`;
+
+  const liverpoolLost =
+    (home === 'Liverpool' && homeScore < awayScore) ||
+    (away === 'Liverpool' && awayScore < homeScore);
+
+  if (liverpoolLost) {
+    await sendWebhookMessage(`Liverpool tapte: ${result}`);
+  }
+
+  console.log(`${result} (${source})`);
 }
 
 (async () => {
   try {
-    const { from, to } = getDateRange();
+    const { from } = getDateRange();
     console.log(`Sjekker kamper for dato: ${from}`);
 
-    const matches = await fetchMatches(from, to);
+    // 1) Prøv Football-Data først
+    let matches = await fetchFootballDataMatches(from, from);
+    let source = 'football-data';
 
-    const liverpoolMatches = matches.filter(
-      m => m.homeTeam.id === LIVERPOOL_ID || m.awayTeam.id === LIVERPOOL_ID
-    );
+    // 2) Hvis ingen kamp → prøv FotMob
+    if (!matches.some(m => m.homeTeam.id === LIVERPOOL_ID || m.awayTeam.id === LIVERPOOL_ID)) {
+      console.log('Ingen Liverpool-kamp i Football-Data, prøver FotMob...');
+      const fotmobMatches = await fetchFotMobMatches(from);
 
-    if (!liverpoolMatches.length) {
+      if (fotmobMatches.length > 0) {
+        matches = fotmobMatches;
+        source = 'fotmob';
+      }
+    }
+
+    if (matches.length === 0) {
       console.log('Liverpool spilte ikke på denne datoen.');
       return;
     }
 
-    console.log(`Fant ${liverpoolMatches.length} kamp(er) med Liverpool:\n`);
-
-    for (const match of liverpoolMatches) {
-      await describeMatch(match);
+    for (const match of matches) {
+      await describeMatch(match, source);
     }
 
   } catch (err) {
@@ -112,3 +145,4 @@ async function describeMatch(match) {
     process.exit(1);
   }
 })();
+
