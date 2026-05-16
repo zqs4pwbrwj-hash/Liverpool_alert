@@ -2,7 +2,7 @@ name: Liverpool tapte varsling
 
 on:
   schedule:
-    - cron: "*/10 * * * *"   # kjører hvert 10. minutt
+    - cron: "*/10 * * * *"
   workflow_dispatch:
 
 jobs:
@@ -17,9 +17,6 @@ jobs:
       uses: actions/setup-node@v3
       with:
         node-version: 18
-
-    - name: Installer avhengigheter
-      run: npm install
 
     - name: Kjør Liverpool-sjekk
       run: node check_last.js
