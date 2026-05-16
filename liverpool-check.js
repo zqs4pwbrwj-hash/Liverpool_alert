@@ -8,7 +8,7 @@ const WEBHOOK_URL = process.env.WEBHOOK_URL;
 
 const BASE_URL = 'https://api.football-data.org/v4';
 const LIVERPOOL_ID = 64; // Liverpool FC
-const PREMIER_LEAGUE_ID = 47; // FotMob PL ID
+const SOFASCORE_TEAM_ID = 44; // Liverpool ID hos SofaScore
 
 if (!API_KEY) {
   console.error('Mangler FOOTBALL_DATA_KEY i Secrets.');
@@ -62,52 +62,34 @@ async function fetchFootballDataMatches(from, to) {
 }
 
 //
-// FOTMOB FALLBACK — Premier League feed
+// SOFASCORE FALLBACK
 //
-async function fetchFotMobPL() {
-  const url = `https://www.fotmob.com/api/leagues?id=${PREMIER_LEAGUE_ID}&tab=matches`;
+async function fetchSofaScoreMatches() {
+  const url = `https://api.sofascore.com/api/v1/team/${SOFASCORE_TEAM_ID}/events/last/0`;
 
   try {
-    const res = await fetch(url, {
-      headers: {
-        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64)',
-        'Accept': 'application/json',
-        'Referer': 'https://www.fotmob.com/',
-        'Cookie': 'fm_cookie=1'
-      }
-    });
+    const res = await fetch(url);
 
     if (!res.ok) {
-      console.error('FotMob svarte ikke OK:', res.status);
+      console.error('SofaScore svarte ikke OK:', res.status);
       return [];
     }
 
     const data = await res.json();
-
-    const rounds = data?.matches?.allMatches || [];
-    const matches = [];
-
-    for (const round of rounds) {
-      if (round.matches) {
-        matches.push(...round.matches);
-      }
-    }
-
-    return matches;
+    return data.events || [];
 
   } catch (err) {
-    console.error('Feil ved henting fra FotMob:', err);
+    console.error('Feil ved henting fra SofaScore:', err);
     return [];
   }
 }
-
 
 //
 // MATCH BESKRIVELSE
 //
 async function describeMatch(match, source) {
-  const home = match.homeTeam?.name || match.home?.name;
-  const away = match.awayTeam?.name || match.away?.name;
+  const home = match.homeTeam?.name || match.homeTeam?.shortName;
+  const away = match.awayTeam?.name || match.awayTeam?.shortName;
 
   let homeScore, awayScore;
 
@@ -115,8 +97,8 @@ async function describeMatch(match, source) {
     homeScore = match.score.fullTime.home;
     awayScore = match.score.fullTime.away;
   } else {
-    homeScore = match.home.score;
-    awayScore = match.away.score;
+    homeScore = match.homeScore?.current;
+    awayScore = match.awayScore?.current;
   }
 
   const result = `${home} ${homeScore} – ${awayScore} ${away}`;
@@ -151,23 +133,27 @@ async function describeMatch(match, source) {
     );
 
     //
-    // 2) Hvis ingen kamp → FotMob Premier League fallback
+    // 2) SofaScore fallback
     //
     if (!foundFD) {
-      console.log('Ingen Liverpool-kamp i Football-Data, prøver FotMob PL-feed...');
+      console.log('Ingen Liverpool-kamp i Football-Data, prøver SofaScore...');
 
-      const fotmobMatches = await fetchFotMobPL();
+      const sofaMatches = await fetchSofaScoreMatches();
 
-      const filtered = fotmobMatches.filter(m => {
-        const date = m.status?.utcTime?.slice(0, 10);
-        const home = m.home?.name;
-        const away = m.away?.name;
+      const filtered = sofaMatches.filter(m => {
+        const date = m.startTimestamp
+          ? new Date(m.startTimestamp * 1000).toISOString().slice(0, 10)
+          : null;
+
+        const home = m.homeTeam?.name;
+        const away = m.awayTeam?.name;
+
         return date === from && (home === 'Liverpool' || away === 'Liverpool');
       });
 
       if (filtered.length > 0) {
         matches = filtered;
-        source = 'fotmob';
+        source = 'sofascore';
       }
     }
 
