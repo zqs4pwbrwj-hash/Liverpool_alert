@@ -22,8 +22,13 @@ jobs:
       run: npm install axios
 
     - name: Kjør Liverpool-sjekk (kun i dag)
-      run: node check_last.js today
+      id: check
+      run: |
+        node check_last.js today | tee output.log
+        echo "log<<EOF" >> $GITHUB_OUTPUT
+        cat output.log >> $GITHUB_OUTPUT
+        echo "EOF" >> $GITHUB_OUTPUT
 
     - name: Send Pushcut notification
-      if: success()
+      if: contains(steps.check.outputs.log, 'PUSHCUT_TRIGGER')
       run: curl "https://api.pushcut.io/R5brW4g13iCchU9EjQ0_u/notifications/Liverpool_tapte"
