@@ -77,4 +77,7 @@ async function fetchFotMobPL() {
     });
 
     if (!res.ok) {
-      console.error('FotMob svarte ikke
+  console.error('FotMob svarte ikke OK:', res.status);
+  return [];
+}
+
