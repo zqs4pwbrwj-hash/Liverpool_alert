@@ -2,7 +2,6 @@ const axios = require("axios");
 
 async function getScoreboard(dateStr) {
   const url = `https://site.api.espn.com/apis/site/v2/sports/soccer/eng.1/scoreboard?dates=${dateStr}`;
-  const { data } = await axios.get(url);
   return data.events || [];
 }
 
