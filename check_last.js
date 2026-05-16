@@ -76,10 +76,6 @@ function formatDate(d) {
 
     console.log("Liverpool LOST — sending Pushcut");
 
-    await axios.post(process.env.PUSHCUT_URL, {
-      text: `Liverpool tapte: ${title}`
-    });
-
   } catch (err) {
     console.error(err);
   }
