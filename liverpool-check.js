@@ -1,19 +1,48 @@
+//
+// Kjør uten argument  → sjekker dagens kamp (normal drift)
+// Kjør med "yesterday" → sjekker gårsdagens kamp (test av webhook)
+//
+
 const API_KEY = process.env.FOOTBALL_DATA_KEY;
+const WEBHOOK_URL = process.env.WEBHOOK_URL;
+
 const BASE_URL = 'https://api.football-data.org/v4';
-const LIVERPOOL_ID = 64; // Liverpool i Football-Data.org
+const LIVERPOOL_ID = 64; // Liverpool FC
 
 if (!API_KEY) {
-  console.error('Mangler FOOTBALL_DATA_KEY i GitHub Secrets.');
+  console.error('Mangler FOOTBALL_DATA_KEY i Secrets.');
   process.exit(1);
 }
 
-function todayISO() {
-  return new Date().toISOString().slice(0, 10);
+function getDateRange() {
+  const arg = process.argv[2];
+
+  const now = new Date();
+  const osloNow = new Date(now.toLocaleString('en-US', { timeZone: 'Europe/Oslo' }));
+
+  if (arg === 'yesterday') {
+    osloNow.setDate(osloNow.getDate() - 1);
+  }
+
+  const date = osloNow.toISOString().slice(0, 10);
+  return { from: date, to: date };
 }
 
-async function fetchMatches() {
-  const date = todayISO();
-  const url = `${BASE_URL}/matches?dateFrom=${date}&dateTo=${date}`;
+async function sendWebhookMessage(text) {
+  if (!WEBHOOK_URL) {
+    console.error('Mangler WEBHOOK_URL i Secrets.');
+    return;
+  }
+
+  await fetch(WEBHOOK_URL, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ content: text })
+  });
+}
+
+async function fetchMatches(from, to) {
+  const url = `${BASE_URL}/matches?dateFrom=${from}&dateTo=${to}`;
 
   const res = await fetch(url, {
     headers: {
@@ -32,43 +61,52 @@ async function fetchMatches() {
   return data.matches || [];
 }
 
-function describeMatch(match) {
+async function describeMatch(match) {
   const home = match.homeTeam.name;
   const away = match.awayTeam.name;
-  const status = match.status; // SCHEDULED, IN_PLAY, FINISHED
-  const utcDate = match.utcDate;
+  const status = match.status;
   const score = match.score;
 
-  console.log('-----------------------------');
-  console.log(`${home} vs ${away}`);
-  console.log(`Tidspunkt: ${utcDate}`);
-  console.log(`Status: ${status}`);
+  let message = `${home} vs ${away} — Status: ${status}`;
 
   if (status === 'FINISHED') {
-    console.log(`Sluttresultat: ${home} ${score.fullTime.home} – ${score.fullTime.away} ${away}`);
-  } else if (status === 'IN_PLAY') {
-    console.log(`Live stilling: ${home} ${score.fullTime.home} – ${score.fullTime.away} ${away}`);
-  } else {
-    console.log('Kampen har ikke startet ennå.');
+    const result = `${home} ${score.fullTime.home} – ${score.fullTime.away} ${away}`;
+    message = `Sluttresultat: ${result}`;
+
+    const liverpoolLost =
+      (home === 'Liverpool FC' && score.fullTime.home < score.fullTime.away) ||
+      (away === 'Liverpool FC' && score.fullTime.away < score.fullTime.home);
+
+    if (liverpoolLost) {
+      await sendWebhookMessage(`Liverpool tapte: ${result}`);
+    }
   }
+
+  console.log(message);
 }
 
 (async () => {
   try {
-    const matches = await fetchMatches();
+    const { from, to } = getDateRange();
+    console.log(`Sjekker kamper for dato: ${from}`);
+
+    const matches = await fetchMatches(from, to);
 
     const liverpoolMatches = matches.filter(
       m => m.homeTeam.id === LIVERPOOL_ID || m.awayTeam.id === LIVERPOOL_ID
     );
 
     if (!liverpoolMatches.length) {
-      console.log('Liverpool spiller ikke i dag.');
+      console.log('Liverpool spilte ikke på denne datoen.');
       return;
     }
 
-    console.log(`Fant ${liverpoolMatches.length} kamp(er) med Liverpool i dag:\n`);
+    console.log(`Fant ${liverpoolMatches.length} kamp(er) med Liverpool:\n`);
 
-    liverpoolMatches.forEach(describeMatch);
+    for (const match of liverpoolMatches) {
+      await describeMatch(match);
+    }
+
   } catch (err) {
     console.error('Uventet feil:', err);
     process.exit(1);
