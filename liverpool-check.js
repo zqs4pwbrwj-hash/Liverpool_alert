@@ -57,25 +57,53 @@ async function fetchFootballDataMatches(from, to) {
   return data.matches || [];
 }
 
+//
+// FOTMOB FALLBACK
+//
 async function fetchFotMobMatches(date) {
-  const fotmobDate = date.replace(/-/g, ''); // 2026-05-15 → 20260515
-  const url = `https://www.fotmob.com/api/matches?date=${fotmobDate}`;
+  const url = `https://www.fotmob.com/api/matches?date=${date}`;
 
   try {
-    const res = await fetch(url);
-    if (!res.ok) return [];
+    const res = await fetch(url, {
+      headers: {
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64)',
+        'Accept': 'application/json',
+        'Referer': 'https://www.fotmob.com/'
+      }
+    });
+
+    if (!res.ok) {
+      console.error('FotMob svarte ikke OK:', res.status);
+      return [];
+    }
 
     const data = await res.json();
 
-    // Finn Premier League-kamper
-    const allMatches = data.leagues.flatMap(l => l.matches);
+    const leagues = data.leagues || [];
+    const matches = [];
 
-    // Filtrer Liverpool
-    return allMatches.filter(
+    for (const league of leagues) {
+      if (league.matches) {
+        matches.push(...league.matches);
+      }
+      if (league.events) {
+        matches.push(...league.events);
+      }
+      if (league.rounds) {
+        for (const round of league.rounds) {
+          if (round.matches) {
+            matches.push(...round.matches);
+          }
+        }
+      }
+    }
+
+    return matches.filter(
       m =>
         m.home?.name === 'Liverpool' ||
         m.away?.name === 'Liverpool'
     );
+
   } catch (err) {
     console.error('Feil ved henting fra FotMob:', err);
     return [];
@@ -111,6 +139,9 @@ async function describeMatch(match, source) {
   console.log(`${result} (${source})`);
 }
 
+//
+// MAIN
+//
 (async () => {
   try {
     const { from } = getDateRange();
@@ -120,8 +151,12 @@ async function describeMatch(match, source) {
     let matches = await fetchFootballDataMatches(from, from);
     let source = 'football-data';
 
+    const foundFD = matches.some(
+      m => m.homeTeam?.id === LIVERPOOL_ID || m.awayTeam?.id === LIVERPOOL_ID
+    );
+
     // 2) Hvis ingen kamp → prøv FotMob
-    if (!matches.some(m => m.homeTeam.id === LIVERPOOL_ID || m.awayTeam.id === LIVERPOOL_ID)) {
+    if (!foundFD) {
       console.log('Ingen Liverpool-kamp i Football-Data, prøver FotMob...');
       const fotmobMatches = await fetchFotMobMatches(from);
 
