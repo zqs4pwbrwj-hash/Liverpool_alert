@@ -18,6 +18,9 @@ jobs:
       with:
         node-version: 18
 
+    - name: Installer axios
+      run: npm install axios
+
     - name: Kjør Liverpool-sjekk
       run: node check_last.js
 
