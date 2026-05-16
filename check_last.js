@@ -74,3 +74,24 @@ const mode = process.argv[2] || "today";
 
     const liverpoolLost =
       (liverpoolHome && homeScore < awayScore) ||
+      (!liverpoolHome && awayScore < homeScore);
+
+    const title = `${home.team.shortDisplayName} ${homeScore}-${awayScore} ${away.team.shortDisplayName}`;
+
+    console.log("Last Liverpool match:", title);
+
+    // ⭐ Liverpool tapte ikke
+    if (!liverpoolLost) {
+      console.log("Liverpool did NOT lose.");
+      process.exit(0); // ← Workflow forblir grønn
+    }
+
+    // ⭐ Liverpool tapte — workflow sender push
+    console.log("Liverpool LOST — workflow will send Pushcut");
+    process.exit(0);
+
+  } catch (err) {
+    console.error(err);
+    process.exit(0); // ← Selv feil gir grønn workflow, men logges
+  }
+})();
