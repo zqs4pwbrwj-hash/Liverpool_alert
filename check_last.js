@@ -28,6 +28,7 @@ const mode = process.argv[2] || "today";
   try {
     let daysBack = 0;
     let match = null;
+    let unfinishedLiverpoolMatch = null; // ⭐ Kamp i dag, men ikke ferdigspilt ennå
 
     while (!match && daysBack < 30) {
       const d = new Date();
@@ -60,6 +61,18 @@ const mode = process.argv[2] || "today";
         return completed && hasLiverpool;
       });
 
+      // ⭐ Fant vi en Liverpool-kamp i dag som IKKE er ferdig ennå?
+      // (kun relevant for "today"-sjekken, ikke historikk-scanningen)
+      if (!match && daysBack === 0) {
+        unfinishedLiverpoolMatch = events.find(e => {
+          const comp = e.competitions[0];
+          const hasLiverpool = comp.competitors.some(
+            c => c.team.shortDisplayName === "Liverpool"
+          );
+          return hasLiverpool;
+        });
+      }
+
       // ⭐ Cron-modus: sjekk kun dagens dato
       if (mode === "today") break;
 
@@ -69,7 +82,14 @@ const mode = process.argv[2] || "today";
     // ⭐ Ingen kamp funnet
     if (!match) {
       if (mode === "today") {
-        console.log("No Liverpool match today.");
+        if (unfinishedLiverpoolMatch) {
+          // ⭐ Det ER en Liverpool-kamp i dag, men den er ikke ferdigspilt ennå
+          const comp = unfinishedLiverpoolMatch.competitions[0];
+          const status = comp.status.type.description || comp.status.type.name || "ukjent status";
+          console.log(`Liverpool match today, not finished yet (status: ${status}) - nothing to report.`);
+        } else {
+          console.log("No Liverpool match today.");
+        }
       } else {
         console.log("No Liverpool match found in last 30 days.");
       }
