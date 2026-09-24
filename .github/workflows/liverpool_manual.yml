@@ -1,10 +1,12 @@
-name: Liverpool tapte varsling (manuell)
+name: Liverpool tapte varsling (cron)
 
 on:
+  schedule:
+    - cron: "7,37 * * * *"
   workflow_dispatch:
 
 jobs:
-  check_liverpool_history:
+  check_liverpool:
     runs-on: ubuntu-latest
 
     steps:
@@ -19,10 +21,10 @@ jobs:
     - name: Installer axios
       run: npm install axios
 
-    - name: Kjør Liverpool-sjekk (historikk)
+    - name: Kjør Liverpool-sjekk (kun i dag)
       id: check
       run: |
-        node check_last.js history | tee output.log
+        node check_last.js today | tee output.log
         echo "log<<EOF" >> $GITHUB_OUTPUT
         cat output.log >> $GITHUB_OUTPUT
         echo "EOF" >> $GITHUB_OUTPUT
