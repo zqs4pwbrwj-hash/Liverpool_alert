@@ -2,7 +2,7 @@ name: Liverpool tapte varsling (cron)
 
 on:
   schedule:
-    - cron: "*/30 * * * *"
+    - cron: "7,37 * * * *"
   workflow_dispatch:
 
 jobs:
@@ -32,3 +32,4 @@ jobs:
     - name: Send Pushcut notification
       if: contains(steps.check.outputs.log, 'PUSHCUT_TRIGGER')
       run: curl "https://api.pushcut.io/R5brW4g13iCchU9EjQ0_u/notifications/Liverpool_tapte"
+
